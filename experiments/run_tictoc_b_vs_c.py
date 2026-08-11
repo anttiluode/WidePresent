@@ -70,6 +70,16 @@ def load_json(path: Path):
         return json.load(handle)
 
 
+def relative_cli_path(path: Path, *, cwd: Path) -> str:
+    """Path form compatible with TicToc's slash-based output filename logic.
+
+    The official scripts derive output basenames with `args.data.split('/')[-1]`.
+    Passing a Windows absolute path would therefore leak drive/backslash text into the
+    output filename.  A cwd-relative forward-slash path works on both Windows and POSIX.
+    """
+    return os.path.relpath(path, cwd).replace(os.sep, "/")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tictoc-dir", type=Path, required=True)
@@ -120,6 +130,7 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     if not output_dir.is_absolute():
         output_dir = tictoc / output_dir
+    output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Condition C lives beside outputs so the official scripts can consume it by path.
@@ -146,6 +157,8 @@ def main() -> None:
         return
 
     env = os.environ.copy()
+    raw_arg = relative_cli_path(raw_data, cwd=tictoc)
+    derived_arg = relative_cli_path(derived_data, cwd=tictoc)
 
     # The official repository currently has separate API/local runners.  This wrapper
     # uses eval_from_api.py because the external gate was designed around an API model.
@@ -155,7 +168,7 @@ def main() -> None:
         "--model",
         args.model,
         "--data",
-        str(raw_data),
+        raw_arg,
         "--use_time_stamp",
         "--output_dir",
         str(output_dir),
@@ -166,7 +179,7 @@ def main() -> None:
         "--model",
         args.model,
         "--data",
-        str(derived_data),
+        derived_arg,
         "--output_dir",
         str(output_dir),
     ]
@@ -180,7 +193,7 @@ def main() -> None:
         "--model",
         args.model,
         "--data",
-        str(raw_data),
+        raw_arg,
         "--use_time_stamp",
         "--output_dir",
         str(output_dir),
@@ -191,7 +204,7 @@ def main() -> None:
         "--model",
         args.model,
         "--data",
-        str(derived_data),
+        derived_arg,
         "--output_dir",
         str(output_dir),
     ]
