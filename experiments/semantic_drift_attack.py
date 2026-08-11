@@ -149,14 +149,11 @@ def posterior_prediction(accumulator: OnlineSemanticAccumulator, item: StreamIte
     return accumulator.posterior().probability(coordinates(item), strategy="average")
 
 
-def accumulator_from_recent(recent: OnlineSemanticAccumulator) -> OnlineSemanticAccumulator:
-    """Rebuild a cumulative learner from the observations retained by recent.
-
-    OnlineSemanticAccumulator intentionally keeps its raw sufficient-statistic
-    contributions private. For this experiment the sentinel simply receives the
-    same recent audits separately and reconstructs from them when a reset fires.
-    """
-    raise RuntimeError("sentinel reconstruction must use explicit recent audit buffer")
+def rebuild_from_recent(recent_audits: list[AuditObservation]) -> OnlineSemanticAccumulator:
+    accumulator = OnlineSemanticAccumulator()
+    for audit in recent_audits:
+        accumulator.update(audit)
+    return accumulator
 
 
 def run_seed(
@@ -240,21 +237,16 @@ def run_seed(
         recent_audits.append(audit)
         recent_audits = recent_audits[-rolling_window:]
 
-        # Exploratory sentinel: compare a recent-window posterior with the primary
-        # cumulative posterior. If recent evidence very strongly favors a different
-        # semantic class, rebuild the primary learner from that recent window.
-        recent_probe = OnlineSemanticAccumulator(window=rolling_window)
-        for recent_audit in recent_audits:
-            recent_probe.update(recent_audit)
-        recent_post = recent_probe.posterior()
+        # Exploratory sentinel: the rolling learner already *is* the recent-window
+        # posterior, so use it as the change monitor rather than refitting a new
+        # recent model at every step. Rebuild only when a reset actually fires.
+        recent_post = rolling.posterior()
         sentinel_post = sentinel.posterior()
         if (
             recent_post.map_semantic != sentinel_post.map_semantic
             and max(recent_post.model_weights.values()) >= sentinel_confidence
         ):
-            sentinel = OnlineSemanticAccumulator()
-            for recent_audit in recent_audits:
-                sentinel.update(recent_audit)
+            sentinel = rebuild_from_recent(recent_audits)
             sentinel_resets.append(index)
 
     return results, weights, sentinel_resets
