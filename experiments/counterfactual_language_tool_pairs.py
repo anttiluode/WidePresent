@@ -403,6 +403,10 @@ def heuristic_action(case: dict[str, Any], policy: str) -> str:
         valid = case["intervening_messages"] <= TTL_N and not inv
     elif policy == "invalidation":
         valid = not inv
+    elif policy == "always_reuse":
+        return "reuse"
+    elif policy == "always_refresh":
+        return "refresh"
     elif policy == "resolver":
         return case["oracle_action"]
     else:
@@ -416,7 +420,10 @@ def heuristic_diagnostic(rows: list[dict[str, Any]]) -> None:
         by_pair[row["pair_id"]].append(row)
 
     print("\nheuristic counterfactual relation accuracy")
-    policies = ("arrival", "world", "position", "invalidation", "resolver")
+    policies = (
+        "arrival", "world", "position", "invalidation",
+        "always_reuse", "always_refresh", "resolver",
+    )
     for policy in policies:
         family_scores: dict[str, list[bool]] = defaultdict(list)
         both_scores: list[bool] = []
@@ -521,6 +528,57 @@ def task_success(row: dict[str, Any], case: dict[str, Any]) -> bool:
     )
 
 
+def behavioral_fingerprint(
+    indexed: dict[str, dict[str, Any]],
+    cases: dict[str, dict[str, Any]],
+) -> None:
+    """Describe which simple temporal theory most resembles model actions.
+
+    This is a behavioral diagnostic, not a latent-mechanism claim. Different
+    internal strategies can produce the same action pattern.
+    """
+    proxy_policies = (
+        "arrival",
+        "world",
+        "position",
+        "invalidation",
+        "always_reuse",
+        "always_refresh",
+    )
+
+    print("  behavioral fingerprint (action agreement with simple theories)")
+    for source in SOURCES:
+        available = [
+            case
+            for case in cases.values()
+            if case["source"] == source
+            and case["case_id"] in indexed
+            and indexed[case["case_id"]].get("action") in ("reuse", "refresh")
+        ]
+        if not available:
+            continue
+
+        scores: dict[str, float] = {}
+        for policy in proxy_policies + ("resolver",):
+            scores[policy] = float(np.mean([
+                indexed[case["case_id"]]["action"] == heuristic_action(case, policy)
+                for case in available
+            ]))
+
+        best_value = max(scores[p] for p in proxy_policies)
+        best = [
+            p for p in proxy_policies
+            if abs(scores[p] - best_value) <= 1e-12
+        ]
+        best_text = "/".join(best)
+        print(
+            f"    {source:>11s}: best_proxy={best_text} ({best_value:.3f}) "
+            f"resolver={scores['resolver']:.3f} "
+            f"[arrival={scores['arrival']:.3f} world={scores['world']:.3f} "
+            f"position={scores['position']:.3f} invalidation={scores['invalidation']:.3f}]"
+        )
+
+
 def score(args: argparse.Namespace) -> None:
     cases = {row["case_id"]: row for row in readjl(args.cases)}
     responses = [row for row in readjl(args.responses) if row.get("case_id") in cases]
@@ -596,6 +654,7 @@ def score(args: argparse.Namespace) -> None:
                         f"    {family:>23s}: relation={np.mean([p['relation_ok'] for p in z]):.3f} "
                         f"both_oracle={np.mean([p['both_oracle'] for p in z]):.3f}"
                     )
+        behavioral_fingerprint(indexed, cases)
 
 
 def parser() -> argparse.ArgumentParser:
