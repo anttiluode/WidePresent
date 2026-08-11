@@ -206,6 +206,61 @@ The current decomposition is:
 
 Many earlier WidePresent branches mixed these three problems together.
 
+### H3a — semantic uncertainty while identification is incomplete
+
+**Status: useful runtime result; standard Bayesian/robust machinery.**
+
+`experiments/semantic_uncertainty_attack.py` compares hard semantic selection, Bayesian model averaging and a conservative worst-case policy when narrow-rate training leaves wall-time versus event-distance semantics unresolved.
+
+Under narrow-rate OOD, hard MAP semantic selection has higher action agreement but lower expected utility than Bayesian model averaging because a wrong hard commitment causes expensive stale reuse. A robust worst-case policy nearly eliminates stale reuse but refreshes substantially more often.
+
+With wide rate-diverse experience the posterior collapses onto the correct source semantics and MAP, model averaging, robust prediction and the oracle-axis reference become essentially identical.
+
+So uncertainty machinery is justified only while the semantics are genuinely unresolved.
+
+Implementation: `temporal_validity_learning.py`.
+
+### H3b — learned temporal semantics can drift
+
+**Status: rolling forgetting positive; explicit drift detector not earned.**
+
+`experiments/semantic_drift_attack.py` switches one source from a world-time hazard to an event-distance hazard halfway through a rate-diverse online stream.
+
+A forever-cumulative posterior develops semantic inertia: after the switch, most seeds do not reach `P(new semantic)>0.90` within the remaining stream. A rolling `240`-audit posterior adapts in all reported seeds and approaches the utility of an oracle reset that knows the true switch time.
+
+An extra confidence-triggered sentinel/reset mechanism did not cleanly beat the rolling posterior and introduced threshold/false-reset tradeoffs, so it is not part of the default runtime.
+
+Implementation: `temporal_validity_online.py`.
+
+This adds a fourth stage:
+
+```text
+4. NONSTATIONARITY
+   old semantic certainty must be allowed to expire
+```
+
+### H3c — active semantic probing
+
+**Status: free-probe positive; shared-budget default negative.**
+
+`experiments/active_semantic_identification.py` shows that, given an equal *separate* diagnostic-probe budget, querying cases where wall-time and event-distance models disagree identifies the true semantic rule far faster than random probes or probes chosen only because current `P(valid)` is near the reuse threshold. Exact semantic information gain helps most at very small budgets, while simple disagreement nearly catches it at moderate budgets.
+
+However, `experiments/active_probe_budget_arbitration.py` removes the free diagnostic budget. Each round has six cached requests and only one refresh/tool call. When semantic probing competes directly with protecting the riskiest current request, dedicated explore-then-exploit scheduling learns the semantic rule faster but loses total operational utility over the tested `20..320` round horizons.
+
+The myopic risk policy learns the source semantics incidentally from the refreshes it already needed to make.
+
+Therefore the current default is:
+
+```text
+refresh by immediate expected operational risk
+learn source semantics opportunistically from refresh outcomes
+add dedicated semantic probes only when a separate value-of-information case is demonstrated
+```
+
+Implementation: `temporal_validity_active.py`.
+
+This kills the temptation to turn every semantic uncertainty into a new active-exploration controller.
+
 ## H4 — future coordinates / prediction rendezvous add value
 
 Predictions are stored at their future-valid world times and become due as `now` reaches those coordinates. Evidence may arrive after the target time, preserving both target-time and validation-time semantics.
