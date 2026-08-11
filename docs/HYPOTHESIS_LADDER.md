@@ -33,6 +33,32 @@ future deadline / time-to-due
 
 This would be an engineering result, not a new theory of time.
 
+## H1.5 — what is the integration window yoked to?
+
+A model can integrate over a fixed number of events/structural units or over a fixed amount of objective time. Those are indistinguishable at one fixed presentation rate and diverge only under rate shift.
+
+**Status: positive proof-of-mechanism, architectural claim not earned.**
+
+`experiments/structure_yoking_clock_assay.py` constructs a deliberately symmetric task in which time-yoked and structure-yoked targets are identical at the nominal training rate. Under a factor-of-three structure-duration shift:
+
+- per-event fading state has structure-yoking index `1`;
+- explicit-`dt` fading state has index `0`;
+- content-blind fixed-clock fading state has index `0`.
+
+For an absolute-time-yoked target, explicit `dt` / clock state generalizes better under compression/stretching. For a structure-yoked target, the event-yoked state wins by a comparable margin.
+
+So the useful question is not "is a clock better?" It is:
+
+> **Which invariant should the task preserve when content rate changes?**
+
+**Primary adversaries:** ordinary continuous-time RNN/SSM state, elapsed-`dt` conditioning, timestamp-aware decay, learned adaptive receptive fields.
+
+**Positive criterion for anything specifically WidePresent-shaped:** on a network free to organize its own receptive field, an absolute/content-blind clock constraint changes the measured yoking index in a way that predicts rate-shift performance and beats equally informed `dt`/continuous-time baselines.
+
+**Kill:** explicit `dt` or a standard continuous-time state learns the same invariant with equal robustness/resources.
+
+The scalar assay currently favors that kill: explicit `dt` and fixed ticking are nearly identical.
+
 ## H2 — bitemporal state matters beyond scalar age
 
 World/event time and knowledge/arrival time are different. Late observations and retrieved old memories make that distinction unavoidable.
