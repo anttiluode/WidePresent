@@ -1,59 +1,32 @@
 # WidePresent
 
-**A research program on giving online AI an explicit, temporally extended present.**
+**Researching explicit temporal state for online AI — with a moving `now`, hard prior-art controls, and permission for the idea to die.**
 
-This repository starts from a narrow engineering question, not a consciousness claim:
+The project started from a bicycle-chain intuition: a fixed-pitch loop keeps moving whether or not anything interesting happens; one point is `now`; state behind it is recent past; predictions can sit ahead of it and later arrive at the present.
 
-> **Does an online agent benefit from carrying state in a content-independent temporal coordinate frame with a moving `now`, rather than letting event/token order stand in for elapsed time?**
+The first day of research already changed that picture substantially.
 
-The motivating image was a bicycle drivetrain. The chain has fixed pitch and keeps advancing; one link is at the engagement point now, links behind it are recent history, links approaching it can carry predictions. The metaphor is disposable. The testable architecture is not.
+## Current question
 
-## Claim boundary first
+Not:
 
-None of these ingredients is new by itself:
+> How do we make an AI conscious of time?
 
-- recurrent nets already carry state;
-- Clockwork RNNs assign modules prescribed clock rates;
-- Phased LSTMs use oscillatory time gates and handle asynchronous events;
-- Time2Vec and many irregular-time models explicitly encode timestamps;
-- LMU/HiPPO maintain mathematically principled representations of continuous history over sliding windows;
-- predictive-processing and active-inference models integrate beliefs about past and future;
-- hippocampal time cells and theta sequences provide biological examples of explicit temporal organization;
-- phenomenology has discussed an extended or "specious" present for more than a century.
+But:
 
-So **WidePresent currently claims no new primitive**.
+> **Does an online agent make better decisions when objective time is maintained as explicit, continuously updated state rather than being left implicit in token/event order or passive timestamp text?**
 
-The potentially useful remainder is the combination:
+And, only if the answer is yes:
 
-```text
-                 absolute / wall-clock time
-                         |
-                         v
-past retention  <----  NOW  ---->  scheduled prediction
-(age-indexed)          (zero)         (time-to-arrival indexed)
-                         |
-                         v
-                prediction matures
-                and meets observation
-```
+> **Does a bounded, temporally typed working state around a moving `now` add anything beyond a boring deterministic temporal kernel?**
 
-with one hard constraint:
+No consciousness claim is made here.
 
-> **Content may change what is represented at a time coordinate, but content does not get to decide whether time advanced.**
+---
 
-That makes `now` an architectural coordinate, not a word the model can merely emit.
+## The first thing we killed
 
-## Why investigate this now?
-
-Norman-Haignere et al. (Nature Neuroscience, 2025) directly separated **time-yoked** integration (fixed absolute duration) from **structure-yoked** integration (windows stretching with phonemes/words). Human auditory cortex was predominantly time-yoked, with only a very small change in integration window under a threefold change in speech-structure duration. In their DeepSpeech2 analysis, however, training produced a transition toward structure-yoked integration across network layers.
-
-That result does **not** imply that human-like cognition requires a WidePresent. It gives us a clean experimental axis: *time vs. structure yoking* can be measured rather than argued about.
-
-A second motivation is practical. Token-centric systems can receive two adjacent symbols separated by 20 ms or 20 hours unless timestamps or an external process tell them otherwise. This is not true of all AI: sampled audio systems, robotics stacks, continuous-time models and timestamp-aware agents can represent objective time. WidePresent targets the narrower failure mode where **event order is allowed to masquerade as elapsed time**.
-
-## Gate 0 — passed, but deliberately weak
-
-`experiments/gate0_clock_vs_event.py` creates streams where the class is defined only by elapsed duration. During training, event density is spuriously correlated with duration; at OOD test the correlation is reversed.
+`experiments/gate0_clock_vs_event.py` makes elapsed duration the target while event density is spuriously correlated with duration during training and reversed OOD.
 
 Seed 0:
 
@@ -66,117 +39,241 @@ fixed_tick_iid         1.0000
 fixed_tick_ood         1.0000
 ```
 
-This proves only the obvious prerequisite: **event count is not a clock**. A model given exact timestamps solves the task just as well as a fixed-tick representation. Therefore Gate 0 is *not* evidence that WidePresent is better than existing time-aware models.
+So event count can impersonate time and catastrophically fail under a rate shift. But an exact timestamp solves the toy just as well as a fixed tick clock.
 
-That equality is important. The real research begins at Gate 1.
+**Gate 0 therefore provides zero evidence for a special WidePresent architecture.**
 
-## The first falsifiable WidePresent
+---
 
-The minimal substrate in `widepresent.py` has three regions:
+## Direct prior art found immediately
+
+The broad versions of the idea are already occupied:
+
+- Clockwork RNNs and Phased LSTMs explicitly organize neural computation by time;
+- Time2Vec and continuous-time models expose timestamps / elapsed time;
+- LMU and HiPPO provide principled continuous sliding-history state;
+- time cells and theta sequences provide biological temporal organization;
+- phenomenology and active-inference work already discuss an extended present containing retention and anticipation;
+- Time-Aware World Models condition dynamics explicitly on `dt`;
+- delayed-observation filtering and out-of-sequence-measurement theory already handle late evidence;
+- stream processors distinguish event time from processing time and use watermarks for late data;
+- bitemporal databases distinguish when a fact is true from when the system learns/stores it;
+- recent conversational-memory work already imports bitemporality into AI memory.
+
+Most directly, Cheng et al.'s **TicToc** benchmark (ACL 2026) calls out *temporal blindness* in multi-turn LLM agents: the same conversational context can demand a different tool-use decision after more real-world time has elapsed. Their timestamp condition still leaves substantial misalignment.
+
+See [`docs/PRIOR_ART_MAP.md`](docs/PRIOR_ART_MAP.md).
+
+The project rule is:
+
+> **Borrow mechanisms, not conclusions. Re-test everything that matters.**
+
+---
+
+## The important correction: there is more than one time
+
+The bicycle chain originally gave us one temporal axis. A real online agent needs at least two:
+
+```text
+world / event / valid time       when the represented event belongs in the world
+knowledge / arrival time         when the agent learned about it
+```
+
+Example:
+
+```text
+Sunday:    event happens
+Tuesday:   agent is told what happened Sunday
+```
+
+At Tuesday's `now`, that information is simultaneously:
+
+```text
+old in world time
+new in knowledge time
+```
+
+A one-dimensional "memory age" cannot express that cleanly.
+
+`bitemporal_present.py` implements a sparse ledger and a fixed-width projection around `now` with separate observation/prediction channels, knowledge ages and source watermarks.
+
+See [`docs/TWO_CLOCKS_AND_WATERMARKS.md`](docs/TWO_CLOCKS_AND_WATERMARKS.md).
+
+---
+
+## The second correction: absence is not evidence of absence
+
+If a sensor, tool or user can report events late, then:
+
+```text
+nothing happened
+```
+
+and
+
+```text
+nothing has arrived yet
+```
+
+are different states.
+
+Stream processors already solve the bookkeeping problem with event-time progress / watermarks. WidePresent imports that distinction rather than pretending to invent it.
+
+`experiments/gate1b_late_evidence_sanity.py` is an executable sanity check: the naive "no arrival = empty" rule produces false-empty declarations; a valid bounded-delay watermark abstains while the interval is incomplete and can make zero false-empty claims once the evidence horizon has closed.
+
+Again: **this is prior-art logic used as a prerequisite, not a WidePresent win.**
+
+---
+
+## Architecture pivot: temporal kernel before temporal neuron
+
+Objective time is usually known to the runtime exactly. Asking a language model to infer it from token statistics is unnecessary work.
+
+So `temporal_kernel.py` implements the deliberately boring baseline:
+
+```text
+input timestamped events/facts
+        |
+        v
+exact deterministic bookkeeping
+        |
+        +--> current decision time
+        +--> world age
+        +--> knowledge age
+        +--> elapsed since tool observation
+        +--> time-to-deadline / lateness
+        +--> evidence completeness
+        |
+        v
+model receives temporal state
+```
+
+The kernel does **not** decide whether something is stale unless an external task actually specifies a validity threshold. On human-preference benchmarks, deriving `stale=true` from the target labels would be cheating.
+
+See [`docs/ARCHITECTURE_PIVOT_TEMPORAL_KERNEL.md`](docs/ARCHITECTURE_PIVOT_TEMPORAL_KERNEL.md).
+
+---
+
+## The first real external gate: TicToc
+
+TicToc's raw scenarios are extremely useful for H1. A conversation can have three alternate final timestamps while its semantic content remains fixed; human preferences for direct answer vs tool refresh are collected separately for the time variants.
+
+The official timestamp condition exposes wall-clock timestamps as text. WidePresent now asks a narrower question:
+
+> **Is the same temporal information more usable when exact elapsed durations are derived by the runtime instead of requiring the LLM to subtract timestamp strings?**
+
+`experiments/tictoc_temporal_kernel_adapter.py` prepares this condition without copying the external dataset and without using human preference labels.
+
+Compare:
+
+```text
+A. no temporal information
+B. passive timestamp text                 [official TicToc condition]
+C. deterministic derived temporal state  [WidePresent H1]
+D. learned/wide temporal state            [only later]
+```
+
+The crucial first comparison is **B vs C**.
+
+If C does not beat B, stop. There is no reason to build a fancy temporal representation for this failure mode.
+
+See [`docs/TICTOC_GATE_PLAN.md`](docs/TICTOC_GATE_PLAN.md) and [`docs/PREREG_GATE_1C_TOKEN_TIME.md`](docs/PREREG_GATE_1C_TOKEN_TIME.md).
+
+---
+
+## Gate 1A pilot: rate-warp forecasting
+
+Before finding TicToc, we ran a small equal-information synthetic forecast pilot. Models observe an irregularly sampled continuous signal and predict a fixed future horizon under held-out sampling rates.
+
+Three-seed exploratory mean RMSE:
+
+| model | IID | slow OOD | fast OOD |
+|---|---:|---:|---:|
+| Event GRU | 0.6862 | 0.7037 | 0.6949 |
+| dt-GRU | 0.6868 | 0.7009 | 0.7051 |
+| Timestamp Transformer | 0.6756 | 0.6992 | 0.6473 |
+| Same-grid GRU | 0.6829 | 0.6995 | 0.6592 |
+| Wide matrix MLP | **0.6692** | **0.6956** | **0.6352** |
+
+The Wide matrix is numerically best in this small pilot, especially at fast-rate OOD, but the margin over the timestamp Transformer is small and seed-sensitive. Fixed binning also gives free denoising, and no LMU/HiPPO control has run.
+
+**Recorded verdict: not a positive result.**
+
+See [`docs/GATE1A_PILOT.md`](docs/GATE1A_PILOT.md).
+
+---
+
+## What `widepresent.py` now means
+
+The original v0.1 code still implements the simple one-axis past/now/future register:
 
 ```text
 [-past ... -2 -1] [0] [+1 +2 ... +future]
         retention  now      prediction
 ```
 
-Every coordinate is an integer multiple of a fixed `dt`.
+A future prediction advances toward zero and becomes due at `now`.
 
-A prediction placed at `+k` is not simply read immediately. The external clock advances. The prediction approaches zero. When it reaches `now`, it is returned as a **matured prediction** and can be compared with the actual observation.
+Keep it as the historical minimal substrate. It is **not** currently the preferred final architecture.
 
-That gives a very simple primitive:
+The more serious state is in `bitemporal_present.py`.
 
-```text
-forecast(t + tau)  --time-->  now  <-->  observation(t + tau)
-```
+---
 
-`experiments/demo_prediction_rendezvous.py` demonstrates this mechanically.
+## Hypothesis ladder
 
-## Research ladder
-
-### Gate 1 — equal timing information
-
-Compare WidePresent against models that receive the **same timing information**:
-
-- GRU/LSTM + exact `dt`;
-- Time2Vec-style timestamp encoding;
-- LMU/HiPPO continuous-history memory;
-- a continuous-time ODE/CDE baseline where practical;
-- a small Transformer with explicit elapsed-time features.
-
-Tasks must include rate warps, long silent intervals, asynchronous modalities and deadline-sensitive prediction. Parameter count, state size and compute are reported.
-
-**Kill condition:** if explicit timestamps or a continuous-time baseline erase the WidePresent advantage, we say so. Then the useful contribution may be an interface/diagnostic representation rather than a better sequence model.
-
-### Gate 2 — prediction rendezvous
-
-Test the one feature that is less common as an architectural primitive: forecasts live at **future time coordinates** and later mature into present observations.
-
-Candidate tasks:
-
-- irregularly sampled moving-object interception;
-- audio/video streams with independent clocks and controlled offsets;
-- delayed actuator outcomes;
-- branching forecasts where several future slots carry distributions, not point predictions.
-
-Metrics include timing error, value error, calibration, and robustness to changes in event density.
-
-### Gate 3 — temporal provenance
-
-Ask whether a fixed temporal coordinate frame reduces source confusion among:
+The project now has explicit places to die:
 
 ```text
-observed-now
-remembered-past
-predicted-future
-retrieved-old-memory
+H0  event count != elapsed time                         known / sanity only
+H1  derived temporal state > passive timestamp text     current external gate
+H2  world-time + knowledge-time > scalar age kernel     open
+H3  wide relative-time projection > ordinary kernel     open
+H4  future-coordinate rendezvous > normal forecasting   open
+H5  cyclic/oscillatory geometry adds value               quarantined
+H6  operational temporal self-location                  descriptive only
+H7  consciousness                                        out of scope
 ```
 
-The content can be identical. The source/time coordinate differs.
+See [`docs/HYPOTHESIS_LADDER.md`](docs/HYPOTHESIS_LADDER.md).
 
-### Gate 4 — TCI-style model microscope
+---
 
-Adapt the temporal-context-invariance logic of Norman-Haignere et al. to hidden representations. Measure each model's integration window under stretched and compressed structure and compute a structure-yoking index.
+## Relationship to earlier Antti Luode repos
 
-This is a **measurement**, not a target. We should not force a model to look brain-like and then celebrate that it does.
+They are useful as an idea generator and negative-results archive, not as axioms.
 
-### Gate 5 — only then ask about a "present"
+- **KYY** is a reminder to use strong algebraic / ordinary controls before calling geometry special.
+- **Visertäjä** is a useful negative precedent: oscillator trajectories trained, but a parameter-matched GRU beat them on the temporal discriminator.
+- **Clockfield / Liquid-NN-With-Adaptive-Local-Time** explored content-dependent clocks. WidePresent currently makes the opposite foundational choice: the objective base clock is not negotiable by content.
+- **GeometricNeuronPlusField** motivates distributed dynamic representations, but none of its biological/geometric conclusions are imported.
 
-If the architecture earns practical behavior, test phenomena usually discussed under temporal cognition:
+If an old mechanism eventually helps, it must enter because a registered WidePresent gate exposes a specific failure that mechanism addresses.
 
-- duration judgements;
-- empty intervals / waiting;
-- temporal-order errors;
-- prediction-vs-observation source errors;
-- interruption and staleness;
-- prospective vs retrospective timing.
+---
 
-Even a positive result would establish temporal organization or temporal self-location, **not phenomenal consciousness**.
-
-## Relationship to earlier Antti Luode repositories
-
-Earlier repositories are treated as an idea generator and negative-results archive, not as axioms.
-
-- **KYY** suggests useful controls for persistent structured state and taught us to compare geometry against strong algebraic baselines.
-- **Visertäjä** showed that oscillator/phase trajectory state can train, but its temporal discriminator lost to a parameter-matched GRU. That negative result is a reason *not* to assume that dynamic-looking state is useful.
-- **Liquid-NN-With-Adaptive-Local-Time / Clockfield** explored content-dependent local update rates. WidePresent currently makes the opposite foundational choice: the base clock is content-blind. Content-dependent gating, if used at all, sits *inside* the temporal scaffold.
-- **GeometricNeuronPlusField** and related work are inspiration for thinking in distributed state and modes, but no biological/geometric claim is imported here.
-
-The project rule is simple:
-
-> **Borrow mechanisms, not conclusions. Re-test everything that matters.**
-
-## Run
+## Run local sanity experiments
 
 ```bash
 pip install -r requirements.txt
+python -m unittest discover -s tests -v
 python experiments/gate0_clock_vs_event.py
 python experiments/demo_prediction_rendezvous.py
+python experiments/gate1b_late_evidence_sanity.py
 ```
 
-## Key prior art / starting references
+A GitHub Actions workflow is included, but connector visibility of Actions is currently unavailable, so the existence of the workflow is not being reported as a successful CI run.
 
-See [`docs/PRIOR_ART_MAP.md`](docs/PRIOR_ART_MAP.md) and [`docs/PREREG_GATE_1.md`](docs/PREREG_GATE_1.md).
+---
 
-The current status is intentionally modest:
+## Current status
 
-> **We have a crisp question, a minimal clock-first substrate, one sanity gate, strong prior-art controls, and several easy ways for the idea to die.**
+The project became **less grand and more interesting** during its first research pass.
+
+The original claim "give AI a present" collided with substantial prior art. What survived is sharper:
+
+> **Many online-agent failures may come not from an absence of temporal information, but from representing time as passive context rather than maintained state.**
+
+That hypothesis is externally testable now.
+
+And if a deterministic temporal kernel solves it, that is the result. We do not need a temporal neuron merely because the bicycle was a good way to notice the problem.
