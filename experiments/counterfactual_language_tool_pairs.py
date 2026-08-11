@@ -39,6 +39,7 @@ reservation_invariant
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import random
@@ -87,6 +88,10 @@ If valid, answer directly and do not call the tool. If invalid, call refresh_sou
 
 def iso(t: datetime) -> str:
     return t.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def parse_iso(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def writejl(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -393,6 +398,91 @@ def generate(args: argparse.Namespace) -> None:
     )
 
 
+def shifted_case(case: dict[str, Any], delta: timedelta) -> dict[str, Any]:
+    """Shift every absolute timestamp while preserving all temporal intervals."""
+    out = copy.deepcopy(case)
+    old_observed = out["observed_at"]
+    old_received = out["received_at"]
+
+    out["observed_at"] = iso(parse_iso(out["observed_at"]) + delta)
+    out["received_at"] = iso(parse_iso(out["received_at"]) + delta)
+    out["decision_at"] = iso(parse_iso(out["decision_at"]) + delta)
+
+    for message in out["history"]:
+        message["time"] = iso(parse_iso(message["time"]) + delta)
+
+    # The cache message contains the source timestamps as literal text.
+    out["history"][0]["content"] = (
+        out["history"][0]["content"]
+        .replace(old_observed, out["observed_at"])
+        .replace(old_received, out["received_at"])
+    )
+
+    # Relative coordinates and the oracle must remain exactly invariant.
+    for field in (
+        "valid_age_seconds",
+        "arrival_age_seconds",
+        "intervening_messages",
+        "explicit_invalidation",
+        "oracle_action",
+    ):
+        assert out[field] == case[field]
+
+    return out
+
+
+def calendar_shift(args: argparse.Namespace) -> None:
+    base = readjl(args.input)
+    if args.limit:
+        base = base[: args.limit]
+
+    rows: list[dict[str, Any]] = []
+    delta = timedelta(days=args.days)
+
+    for index, original in enumerate(base):
+        pair_id = f"mt-calendar-{index:05d}"
+
+        a = copy.deepcopy(original)
+        a["base_case_id"] = original["case_id"]
+        a["case_id"] = pair_id + "-A"
+        a["pair_id"] = pair_id
+        a["pair_family"] = "calendar_shift_invariant"
+        a["pair_variant"] = "A"
+        a["expected_pair_relation"] = "same"
+        a["base_regime"] = original.get("regime")
+        a["regime"] = "metamorphic_calendar_shift"
+        a["conditions"] = {
+            condition: {"messages": render(a, condition), "tools": [TOOL]}
+            for condition in CONDS
+        }
+
+        b = shifted_case(original, delta)
+        b["base_case_id"] = original["case_id"]
+        b["case_id"] = pair_id + "-B"
+        b["pair_id"] = pair_id
+        b["pair_family"] = "calendar_shift_invariant"
+        b["pair_variant"] = "B"
+        b["expected_pair_relation"] = "same"
+        b["base_regime"] = original.get("regime")
+        b["regime"] = "metamorphic_calendar_shift"
+        b["conditions"] = {
+            condition: {"messages": render(b, condition), "tools": [TOOL]}
+            for condition in CONDS
+        }
+
+        assert a["oracle_action"] == b["oracle_action"]
+        assert a["valid_age_seconds"] == b["valid_age_seconds"]
+        assert a["arrival_age_seconds"] == b["arrival_age_seconds"]
+        assert a["intervening_messages"] == b["intervening_messages"]
+        rows.extend((a, b))
+
+    writejl(args.output, rows)
+    print(
+        f"wrote {len(rows)} cases = {len(rows)//2} calendar-shift invariance pairs "
+        f"(+{args.days:g} days)"
+    )
+
+
 def heuristic_action(case: dict[str, Any], policy: str) -> str:
     inv = case["explicit_invalidation"]
     if policy == "arrival":
@@ -643,11 +733,19 @@ def score(args: argparse.Namespace) -> None:
             )
             flip = [p for p in pair_stats if p["expected"] == "flip"]
             same = [p for p in pair_stats if p["expected"] == "same"]
-            print(
-                f"  causal_flip_success={1.0 - np.mean([p['missed_flip'] for p in flip]):.3f} "
-                f"spurious_flip_rate={np.mean([p['spurious_flip'] for p in same]):.3f}"
+            flip_success = (
+                1.0 - float(np.mean([p["missed_flip"] for p in flip]))
+                if flip else math.nan
             )
-            for family in PAIR_FAMILIES:
+            spurious = (
+                float(np.mean([p["spurious_flip"] for p in same]))
+                if same else math.nan
+            )
+            print(
+                f"  causal_flip_success={flip_success:.3f} "
+                f"spurious_flip_rate={spurious:.3f}"
+            )
+            for family in sorted({p["family"] for p in pair_stats}):
                 z = [p for p in pair_stats if p["family"] == family]
                 if z:
                     print(
@@ -670,6 +768,13 @@ def parser() -> argparse.ArgumentParser:
     s = sub.add_parser("sanity")
     s.add_argument("--input", type=Path, required=True)
     s.set_defaults(func=sanity)
+
+    mt = sub.add_parser("calendar-shift")
+    mt.add_argument("--input", type=Path, required=True)
+    mt.add_argument("--output", type=Path, required=True)
+    mt.add_argument("--days", type=float, default=30.0)
+    mt.add_argument("--limit", type=int, default=0)
+    mt.set_defaults(func=calendar_shift)
 
     sc = sub.add_parser("score")
     sc.add_argument("--cases", type=Path, required=True)
