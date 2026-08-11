@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Gate 0 smoke
+        run: python experiments/gate0_clock_vs_event.py --seed 0
+      - name: Prediction rendezvous smoke
+        run: python experiments/demo_prediction_rendezvous.py
+      - name: Late-evidence smoke
+        run: python experiments/gate1b_late_evidence_sanity.py --seed 0 --ticks 5000
