@@ -75,11 +75,19 @@ Predictions are stored at their future-valid world times and become due as `now`
 
 ## H5 — cyclic/oscillatory geometry is useful
 
-Only now would the original bicycle loop, theta-like phase, KYY ring, or Visertäjä oscillators return.
+**Status after the 2026-08-11 matched lake attack: simple version negative.**
 
-They need a named failure in H1–H4 that a cyclic coordinate plausibly fixes.
+`docs/LAKE_VS_LEDGER_ATTACK.md` compared a fixed local spring/wave state against timestamped age bins and matched exponential filters under the same delivered evidence, the same valid-time information, the same linear readout family, and a 60-number state budget.
 
-**Kill by default:** do not add them merely because they look brain-like or resonate with earlier repos.
+The pure wave state lost in IID, sparse-rate OOD, dense-rate OOD, and long-delay OOD. Adding a slow diffusive "oil" field recovered the boring filter performance, but the wave coordinates added essentially nothing beyond the slow field.
+
+More strongly, the linear graph-diffusion state is exactly an orthogonal basis transform of independent exponential modes. Its useful fading memory therefore does not require local graph geometry.
+
+So the old permission to reintroduce the bicycle loop, theta-like phase, KYY ring, Visertäjä oscillators, or generic wave interference is withdrawn **by default**.
+
+They may return only if a named later failure exposes something a non-oscillatory temporal filter cannot represent or compute efficiently, for example a genuinely phase-dependent interaction, nonlinear local routing, or a physical implementation constraint.
+
+**Current kill rule:** do not add oscillations merely because they are temporally rich, brain-like, or physically intuitive.
 
 ## H6 — temporal self-location
 
