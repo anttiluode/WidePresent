@@ -96,14 +96,59 @@ They time-stretched/compressed speech and used temporal context invariance (TCI)
 
 **Why it matters here:** it provides an assay. We can measure whether a learned architecture uses absolute-time or structure/event-relative windows without assuming either is automatically superior.
 
-## 7. What might remain interesting
+## 7. Time-aware world models and delayed observations
 
-No novelty claim is made yet. Candidate remainder:
+### Time-Aware World Model — Nhu, Son & Lin, ICML 2025
+TAWM explicitly conditions world-model dynamics on time-step size `dt` and trains across varied `dt`, improving control and prediction across observation rates.
 
-1. A **hard moving temporal origin** (`now`) shared across modalities.
-2. Past state indexed by **age from now**, not merely arbitrary recurrent state.
-3. Predicted state indexed by **time-to-now**, so forecasts mathematically mature into observations as the clock advances.
-4. A content-independent base clock that remains invariant while attention/gating/content processing operates inside the frame.
-5. A direct TCI-style diagnostic of time-vs-structure yoking in online agents.
+- https://proceedings.mlr.press/v267/nhu25a.html
 
-Each of those may also have close prior art in control, signal processing, robotics, event cameras, predictive coding or world models. The next literature search should explicitly try to kill this remainder.
+**Boundary:** conditioning a learned world model on elapsed time and seeking sampling-rate robustness is direct prior art.
+
+### Model-Based RL under Random Observation Delays — Karamzade et al., L4DC 2026
+Studies sensors whose observations can arrive late and out of sequence. The paper reports that naive stacking of past observations is insufficient and introduces a delay-aware model-based filtering approach.
+
+- https://proceedings.mlr.press/v331/karamzade26a.html
+
+**Boundary:** delay-aware state estimation and robustness to delay-distribution shift are not new WidePresent claims.
+
+### Out-of-sequence measurement filtering
+Delayed and out-of-order measurements have a long literature in Bayesian/Kalman filtering, smoothing and sensor fusion.
+
+- Challa, Evans & Wang 2003: https://doi.org/10.1016/S1566-2535(03)00037-X
+
+**Boundary:** retroactively incorporating delayed measurements into a state estimate is established estimation theory.
+
+## 8. Event time, processing time and bitemporal memory
+
+### Stream processing
+Apache Flink explicitly distinguishes event time (when an event happened), ingestion time and processing time, and uses watermarks to reason about event-time progress and late/out-of-order records.
+
+- https://nightlies.apache.org/flink/flink-docs-stable/docs/learn-flink/streaming_analytics/
+
+**Boundary:** distinguishing event/world time from arrival/processing time, and tracking completeness of an interval, is mature stream-processing machinery.
+
+### Temporal databases
+Bitemporal databases distinguish **valid time** (when a fact is true in modeled reality) from **transaction time** (when it is stored/known to the database). Formal treatments go back decades.
+
+- Clifford & Isakowitz 1992: https://archive.nyu.edu/jspui/handle/2451/14356
+
+### Bitemporal conversational-agent memory — 2026
+Very recent work already applies valid-time / transaction-time memory to conversational AI, including a graph-native bitemporal memory store and TGMS.
+
+- https://arxiv.org/abs/2607.26520
+- https://arxiv.org/abs/2607.10265
+
+**Boundary:** "AI memory should have world time and knowledge time" is already active prior art.
+
+## 9. What might remain interesting
+
+No novelty claim is made yet. The surviving research object is becoming narrower:
+
+1. A **temporally typed working state around a moving `now`**, rather than only a long-term bitemporal database.
+2. A projection that combines event/world time, knowledge/arrival time, observation completeness, uncertainty and future deadlines in the state consumed by a learned online policy/model.
+3. Controlled tests of whether keeping these temporal types explicit reduces source confusion: observed-now vs remembered-past vs predicted-future vs newly learned old evidence.
+4. A TCI-style diagnostic of learned time-vs-structure yoking, treated as a measurement rather than a brain-likeness objective.
+5. A fair comparison against time-aware world models, delay-aware filters, timestamp Transformers, LMU/HiPPO, and ordinary database/stream-processing infrastructure.
+
+The likely contribution, if any, is therefore **not a new notion of time**. It would be evidence that importing several mature temporal semantics into the *working representation of a learned agent* produces a useful inductive bias or diagnostic capability.
