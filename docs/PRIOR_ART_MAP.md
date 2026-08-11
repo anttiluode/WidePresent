@@ -141,7 +141,41 @@ Very recent work already applies valid-time / transaction-time memory to convers
 
 **Boundary:** "AI memory should have world time and knowledge time" is already active prior art.
 
-## 9. What might remain interesting
+## 9. LLM passage-of-time and temporal-blindness work
+
+This literature is particularly close to the motivating failure mode.
+
+### Discrete Minds in a Continuous World — Wang et al., EMNLP Findings 2025
+The paper explicitly asks whether language models know that physical time passes. It proposes a **Token-Time Hypothesis**: models can use token counts as a proxy for elapsed wall-clock time, and tests duration judgement, urgency-sensitive response length and an interactive time-pressure task.
+
+- https://aclanthology.org/2025.findings-emnlp.1016/
+
+This is an important counterweight to the strongest version of the WidePresent motivation: language models are not necessarily devoid of all temporal signal. They can infer some passage of time from sequence statistics.
+
+**Boundary:** WidePresent cannot claim the first demonstration that token time and wall-clock time differ, or that LLMs can/should bridge them.
+
+### Your LLM Agents are Temporally Blind — Cheng et al., ACL Findings 2026
+TicToc directly tests multi-turn agents whose correct tool-use decision depends on the real-world time elapsed since an earlier observation. The paper reports a stationary-context failure: agents over-trust stale context or redundantly refresh it. Importantly, merely adding timestamps gives only modest improvement; no tested model exceeds 65% normalized human-alignment rate with timestamp information.
+
+- https://aclanthology.org/2026.findings-acl.1848/
+
+This is extremely close to WidePresent's practical target.
+
+**Boundary:** "LLM agents ignore elapsed time between messages" and "timestamps alone may be insufficient" are already published findings, not WidePresent discoveries.
+
+### Real-Time Deadlines Reveal Temporal Awareness Failures — Sehgal et al., 2026 preprint
+In simulated strategic dialogues, agents given explicit remaining-time updates perform much better under real-time deadlines than agents merely told the total deadline at the beginning, while turn-budgeted versions are much easier. This again separates discrete interaction steps from continuously changing temporal state.
+
+- https://arxiv.org/abs/2601.13206
+
+### TReMu — Ge et al., ACL Findings 2025
+Multi-session dialogue temporal reasoning improves substantially when the system constructs time-aware timeline memories and delegates temporal arithmetic to generated Python rather than relying on raw language-model context alone.
+
+- https://aclanthology.org/2025.findings-acl.972/
+
+**Project consequence:** the bar is higher than "put timestamps in the prompt." The research question is whether temporal information becomes more reliable when it is represented as **persistent typed state that changes as time passes**, rather than passive text that the model may or may not use.
+
+## 10. What might remain interesting
 
 No novelty claim is made yet. The surviving research object is becoming narrower:
 
@@ -150,5 +184,6 @@ No novelty claim is made yet. The surviving research object is becoming narrower
 3. Controlled tests of whether keeping these temporal types explicit reduces source confusion: observed-now vs remembered-past vs predicted-future vs newly learned old evidence.
 4. A TCI-style diagnostic of learned time-vs-structure yoking, treated as a measurement rather than a brain-likeness objective.
 5. A fair comparison against time-aware world models, delay-aware filters, timestamp Transformers, LMU/HiPPO, and ordinary database/stream-processing infrastructure.
+6. For LLM agents specifically, a **token-time decorrelation** test: hold token content/count fixed while varying silent wall-clock gaps, and ask whether action policy changes with real elapsed time. Compare passive timestamp injection against structured temporal state.
 
 The likely contribution, if any, is therefore **not a new notion of time**. It would be evidence that importing several mature temporal semantics into the *working representation of a learned agent* produces a useful inductive bias or diagnostic capability.
