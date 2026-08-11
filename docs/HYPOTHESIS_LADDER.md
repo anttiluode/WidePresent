@@ -33,6 +33,13 @@ future deadline / time-to-due
 
 This would be an engineering result, not a new theory of time.
 
+The repo now has two external-facing language/tool gates:
+
+- `experiments/run_tictoc_b_vs_c.py` for the published TicToc timestamp-vs-derived-kernel comparison;
+- `experiments/language_tool_validity_benchmark.py` for paired `raw` / `age_plane` / `resolver` tool-use decisions.
+
+Both are prepared and scored reproducibly. Genuine external LLM sampling is still pending in the current ChatGPT execution environment because no API key/local language model is available. No proxy classifier is substituted for that missing result.
+
 ## H1.5 — what is the integration window yoked to?
 
 A model can integrate over a fixed number of events/structural units or over a fixed amount of objective time. Those are indistinguishable at one fixed presentation rate and diverge only under rate shift.
@@ -59,6 +66,12 @@ So the useful question is not "is a clock better?" It is:
 
 The scalar assay currently favors that kill: explicit `dt` and fixed ticking are nearly identical.
 
+The later identifiability work sharpens the interpretation further:
+
+> at one fixed rate, wall-time age and event distance can be statistically inseparable even when both are represented perfectly.
+
+So "the model saw timestamps" is not equivalent to "the data identified which temporal coordinate should govern memory."
+
 ## H2 — bitemporal state matters beyond scalar age
 
 World/event time and knowledge/arrival time are different. Late observations and retrieved old memories make that distinction unavoidable.
@@ -70,6 +83,15 @@ World/event time and knowledge/arrival time are different. Late observations and
 **Kill:** ordinary delay-aware filtering / bookkeeping is sufficient.
 
 No novelty in bitemporality itself.
+
+The language counterfactual weather pair now gives a direct behavioral version of this point:
+
+```text
+arrival age held fixed
+world/valid age crosses the freshness boundary
+```
+
+A policy based on arrival recency cannot solve that pair.
 
 ## H3 — a wide relative-time working projection adds value
 
@@ -112,6 +134,48 @@ So the current surviving claim is representational/diagnostic:
 
 This is not evidence for a special neural substrate.
 
+The language branch now attacks that claim at three increasingly strict levels:
+
+1. `experiments/language_tool_validity_benchmark.py`
+   - known validity contract;
+   - compare raw timestamps, deterministic age-plane arithmetic, and external resolver.
+
+2. `experiments/counterfactual_language_tool_pairs.py`
+   - causal flip pairs and non-causal invariance pairs;
+   - weather/world-time, discourse/event-distance, reservation/until-change;
+   - behavioral fingerprint against simple temporal theories;
+   - calendar-shift metamorphic invariance.
+
+3. `experiments/language_semantics_discovery_benchmark.py`
+   - arbitrary source labels;
+   - narrow audit experience where seconds/events are underidentified;
+   - wide rate-diverse experience where the correct semantic coordinate becomes identifiable;
+   - final hidden cases matched exactly across narrow/wide experience.
+
+The practical implementation is now `temporal_validity.py`, which turns the surviving idea into an explicit runtime contract:
+
+```text
+REPRESENTATION
+    valid time
+    known time
+    structural index
+    source version/change state
+
+VALIDITY SEMANTICS
+    WorldTimeTTL
+    EventDistanceTTL
+    UntilChange
+    ExponentialAgePlane / other source models
+
+DECISION
+    P(valid now)
+    + stale-reuse cost
+    + refresh cost
+    -> REUSE / REFRESH
+```
+
+This is currently a more defensible engineering endpoint than a special WidePresent neural layer.
+
 **Primary adversaries:**
 
 - source-specific hazard/survival models;
@@ -126,6 +190,21 @@ This is not evidence for a special neural substrate.
 **Kill:** ordinary source-specific validity modeling matches or beats it.
 
 At present, that kill is favored once rate diversity makes the semantics identifiable.
+
+The current decomposition is:
+
+```text
+1. REPRESENTATION
+   preserve the candidate coordinates
+
+2. IDENTIFICATION
+   experience must vary enough to determine which coordinate matters
+
+3. DECISION
+   map validity uncertainty and refresh cost into action
+```
+
+Many earlier WidePresent branches mixed these three problems together.
 
 ## H4 — future coordinates / prediction rendezvous add value
 
