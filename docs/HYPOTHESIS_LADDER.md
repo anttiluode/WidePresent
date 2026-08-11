@@ -73,21 +73,59 @@ No novelty in bitemporality itself.
 
 ## H3 — a wide relative-time working projection adds value
 
-Project the bitemporal ledger into a bounded state centered on now, with rows/slots representing relative world time and channels representing observation, prediction, knowledge age, uncertainty and completeness.
+The original H3 imagined a bounded matrix centered on `now`. The yoking work has narrowed this into a smaller candidate representation: preserve multiple temporal coordinates such as
+
+```text
+Δt = valid/world age in seconds
+Δn = structural/event-position age
+```
+
+until a source/content-specific validity model has enough evidence to decide which transformation actually governs relevance.
+
+**Current status: agent-level representation result; special architecture not earned.**
+
+`experiments/event_agent_age_plane_attack.py` tests an operational `REUSE cached result` versus `REFRESH tool` decision with three simultaneous semantics:
+
+```text
+weather   -> validity hazard in wall time
+discourse -> validity hazard in intervening event count
+state     -> valid until explicit invalidation; no age decay
+```
+
+Tool results also have separate valid/world and arrival/knowledge times.
+
+Under episode-level rate shift, a source-conditioned linear age-plane representation is markedly more robust than timestamp-only, position-only, the same raw coordinates without source/age interactions, and the generic boosted tree used in the attack. Under long tool delays, arrival-only recency degrades sharply, again showing that `arrived recently` is not equivalent to `valid recently`.
+
+However, when training contains enough rate diversity to identify the temporal semantics, a boring per-source survival/hazard resolver selects:
+
+```text
+weather   -> seconds
+discourse -> events
+state     -> explicit invalidation
+```
+
+in all five reported seeds and beats the age-plane linear policy on the important dense/sparse OOD regimes.
+
+So the current surviving claim is representational/diagnostic:
+
+> **Do not collapse evidence into one scalar notion of age before the task/source semantics identify which temporal coordinate governs validity.**
+
+This is not evidence for a special neural substrate.
 
 **Primary adversaries:**
 
-- temporal kernel scalar/vector side-channel;
-- timestamp Transformer;
+- source-specific hazard/survival models;
+- deterministic validity/freshness resolvers;
+- timestamp Transformer / relative-time attention;
+- continuous-time RNN/SSM state;
 - LMU / HiPPO continuous history;
-- Time-Aware World Model style `dt` conditioning;
 - delay-aware belief filters.
 
-**Positive criterion:** the explicit relative-time geometry gives better OOD rate/delay robustness, calibration or source/provenance discrimination under matched information/resources.
+**Positive criterion for a specifically WidePresent architecture:** a bounded relative-time representation must beat source-aware hazard/validity resolvers and established continuous-time memory under matched information/resources on a language/tool-agent task, not merely on synthetic summaries.
 
-**Kill:** kernel or established continuous-time memory matches it.
+**Kill:** ordinary source-specific validity modeling matches or beats it.
 
-This is the first point at which the particular WidePresent representation might earn an architectural claim.
+At present, that kill is favored once rate diversity makes the semantics identifiable.
 
 ## H4 — future coordinates / prediction rendezvous add value
 
