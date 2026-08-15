@@ -20,11 +20,11 @@ For a source `s` and receiver `r`, the path frontier answers a deterministic cau
 
 That remains useful and requires no new theory.
 
-A 2026-08-15 experiment in `anttiluode/Dig` exposed a second question that should not be confused with the first:
+Dig now adds a second receiver-side question that should not be confused with transport eligibility:
 
-> **Once a response has begun to arrive, how much of the receiver's eventual ability to distinguish alternative causes is already present in the finite response prefix?**
+> **Once responses have begun to arrive, how much evidence has accumulated for distinguishing the alternative causes that matter to this receiver?**
 
-This note calls that **receiver observability maturity** only as project bookkeeping. Finite-horizon observability and discrimination are established control-theory ideas; the name is not a novelty claim.
+Finite-horizon observability and discrimination are established control-theory / signal-detection ideas. Nothing here claims otherwise.
 
 ---
 
@@ -42,42 +42,70 @@ matched no-stimulus subtraction
 response prefixes at 0.5, 1, 2, 5, 10, 20, 40, 80, 120 ms
 ```
 
-For each temporal prefix, the exploratory analysis compared the normalized source-response geometry with its 120 ms version.
-
-Important result:
+The first exploratory analysis used normalized trajectory geometry. It was useful but non-monotone, so Dig explicitly replaced it with a cumulative pairwise discrimination quantity:
 
 ```text
-six-receiver view at 0.5 ms:
-
-response energy accumulated           24.6% of 120 ms total
-final nearest-neighbour identities    14 / 16 already correct
+D_C,T^2(i,j)
+    = integral_0^T || h_i(t) - h_j(t) ||^2 dt
 ```
 
-For the soma-only view:
+for source responses `h_i,h_j` under receiver/readout `C`.
+
+This quantity passed the required monotonicity guard over every tested source pair and random readout projection.
+
+Pair-specific maturity is defined only relative to the same receiver's 120 ms value:
 
 ```text
-at 2 ms:
-
-response energy accumulated           30.4%
-pairwise source-distance correlation
-with 120 ms geometry                  > 0.90
+M_C,T(i,j)
+    = D_C,T^2(i,j) / D_C,120^2(i,j).
 ```
 
-Thus in this model/protocol:
-
-```text
-response arrival fraction
-!=
-source-relationship maturity
-```
-
-The two evolve on different curves.
-
-That is the only reason this note belongs here.
+This is a matrix over candidate causes, not one scalar attached to an event.
 
 ---
 
-# Three quantities that must remain separate
+# The important empirical separation
+
+The earlier run measured aggregate six-port response-energy arrival:
+
+```text
+10 ms    98.23% of eventual aggregate response energy
+20 ms    99.47%
+```
+
+The monotone pairwise discrimination gate found at the same horizons:
+
+```text
+10 ms
+    median source-pair maturity       94.45%
+    10th-percentile pair maturity     50.43%
+    fraction pairs >=90% mature       53.3%
+
+20 ms
+    median source-pair maturity       99.70%
+    10th-percentile pair maturity     80.39%
+    fraction pairs >=90% mature       80.0%
+```
+
+Thus:
+
+```text
+almost all aggregate response energy present
+```
+
+does **not** imply:
+
+```text
+all candidate causes are almost fully distinguishable.
+```
+
+Different source pairs mature at different rates.
+
+This is a stronger and cleaner reason to keep transport/arrival separate from discrimination maturity than the earlier normalized-shape analysis.
+
+---
+
+# Four quantities that must remain separate
 
 ## 1. World / event age
 
@@ -85,7 +113,7 @@ That is the only reason this note belongs here.
 now - event_time
 ```
 
-When did the source event occur?
+When did the event happen?
 
 ## 2. Transport eligibility / path frontier
 
@@ -97,62 +125,96 @@ could the event have reached this receiver yet?
 
 This is what `receiver_present.py` already captures.
 
-## 3. Receiver-relative discrimination maturity
-
-Given the response that has arrived so far:
+## 3. Aggregate response arrival
 
 ```text
-how much evidence is present for distinguishing the candidate causes
-that matter to this receiver/task?
+how much total response energy has accumulated?
 ```
+
+This can be useful for instrumentation but is not enough to characterize decision readiness.
+
+## 4. Receiver-relative discrimination matrix
+
+```text
+D_C,T[i,j]
+```
+
+How separated are candidate causes `i,j` by the response observed through readout `C` over horizon `T`?
 
 This depends on:
 
 ```text
 receiver/readout
 observation horizon
-noise / precision
 candidate alternatives
-decision metric
+noise / precision
+measurement metric
 ```
 
 It is therefore **not** an intrinsic scalar age attached to the event.
 
 ---
 
-# Important correction from Dig
+# Waiting versus routing
 
-The first Dig analysis used L2-normalized source trajectories, cosine distance and entropy effective rank.
+The monotone Dig gate also measured the same response tensor through fixed random readout dimensions `k=1..6`.
 
-That produced a useful warning:
-
-```text
-six-port normalized entropy rank
-
-0.5 ms   8.38
-1 ms     9.38
-2 ms     9.77
-5 ms     9.37
-...
-120 ms   8.52
-```
-
-The normalized shape rank peaks early and then declines.
-
-Do not interpret that as literal observability decreasing when the receiver waits longer. An observer retaining the full prefix can always ignore later samples.
-
-The non-monotonicity comes from the chosen normalized geometry: adding a shared late response can align row-normalized source trajectories and reduce entropy effective rank while preserving the earlier discriminative samples.
-
-Therefore the next Dig gate is explicitly moving to a monotone finite-horizon discrimination quantity such as
+At 120 ms, median pairwise discrimination energy as a fraction of the physical six-port reference saturated around:
 
 ```text
-D_T^2(i,j)
-    = integral_0^T || h_i(t) - h_j(t) ||^2 dt
+k=1     12.8%
+k=2     29.7%
+k=3     45.9%
+k=4     64.4%
+k=5     88.7%
+k=6    100.0%
 ```
 
-for source impulse responses `h_i,h_j`.
+Waiting helps every fixed readout because `D_C,T` accumulates monotonically.
 
-Only after that gate should this note acquire a stronger numerical definition.
+But waiting cannot recover distinctions discarded by the output bottleneck.
+
+This gives a clean systems interpretation:
+
+```text
+WAIT
+    increase T under the current readout C
+    -> accumulate more evidence
+    -> cannot exceed that readout's asymptotic discrimination ceiling
+
+ROUTE
+    change C
+    -> change what evidence is observed
+    -> can raise or alter the attainable ceiling
+```
+
+In the toy, a one-dimensional readout reached 10% of the six-port reference by 20 ms but never reached 25% even at 120 ms. A two-dimensional readout reached 25% only by 40 ms and never reached 50%.
+
+That does not prove a WidePresent or PivotPoint architecture. It only makes the `wait` versus `route` distinction mathematically concrete.
+
+---
+
+# Important correction from the first Dig analysis
+
+The first Dig analysis used L2-normalized source trajectories, cosine distance and entropy effective rank. That shape rank peaked early and then declined.
+
+Do not interpret that as literal observability decreasing with time. An observer retaining the full prefix can always ignore later samples.
+
+The monotone `D_C,T^2` gate was added precisely to remove that ambiguity and passed its monotonicity checks.
+
+So if this note is used later, prefer:
+
+```text
+finite-horizon cumulative pairwise discrimination
+```
+
+over:
+
+```text
+normalized trajectory rank
+```
+
+for claims about evidence accumulation.
 
 ---
 
@@ -162,32 +224,20 @@ WidePresent's active hypotheses concern online-agent temporal bookkeeping and wh
 
 The neuron experiment does **not** test any of those hypotheses.
 
-It only suggests a useful conceptual distinction for future asynchronous-agent work:
+It suggests one future asynchronous-agent distinction:
 
 ```text
 AVAILABLE
     a result is allowed to have arrived
 
-ARRIVING / IN FLIGHT
-    a process has begun to influence the receiver
+ARRIVING / ACCUMULATING
+    evidence is physically becoming available
 
-DISCRIMINATIVE ENOUGH
-    the currently available prefix can support the next decision
+DISCRIMINATIVE ENOUGH FOR THIS DECISION
+    the relevant alternatives are separated enough under the current readout
 ```
 
-An agent may therefore face a decision like:
-
-```text
-wait for more evidence
-vs
-route to another receiver/tool
-vs
-probe again
-vs
-act now
-```
-
-But whether exposing such a maturity estimate helps an LLM/agent is an open engineering question and needs its own registered benchmark.
+The last line requires a task/noise criterion supplied independently by the downstream problem. Dig does not invent that threshold.
 
 ---
 
@@ -199,7 +249,7 @@ PivotPoint already asks:
 what can I do now that changes what I will be able to read next?
 ```
 
-A clean control-theory-inspired decomposition is:
+A clean systems decomposition is:
 
 ```text
 WAIT
@@ -218,9 +268,9 @@ MODULATE / GATE
     potentially change the internal dynamics themselves
 ```
 
-This is better than calling every useful action "geometry deformation."
+Only the last category necessarily changes the internal dynamics/operator.
 
-Again, the mapping is conceptual bookkeeping, not a novelty claim.
+This is better than calling every useful action "geometry deformation."
 
 ---
 
@@ -228,13 +278,14 @@ Again, the mapping is conceptual bookkeeping, not a novelty claim.
 
 Do **not** modify `receiver_present.py` merely because this note exists.
 
-The sequence should be:
+The current sequence should be:
 
-1. Dig runs the monotone finite-horizon discrimination gate.
-2. If the distinction between transport arrival and discrimination maturity survives, define a minimal receiver-side measurement API.
-3. Only then create an agent benchmark where `wait` versus `route/probe/act` decisions depend on that measurement.
-4. If an ordinary deterministic resolver solves the benchmark, use the resolver and stop.
+1. Keep `path_frontier` as the deterministic transport baseline.
+2. Treat `D_C,T[i,j]` as an external measurement object, not a required runtime field.
+3. Build a benchmark only if there is a concrete online decision where `wait` versus `route/probe/act` depends on a known task threshold and current readout ceiling.
+4. Compare against a boring deterministic resolver first.
+5. If the resolver solves it, use the resolver and stop.
 
 ## One-line state
 
-> **Path frontier answers whether evidence could have arrived. A separate receiver-relative finite-horizon quantity may answer whether enough distinguishing evidence has unfolded. The neuron toy shows those are not numerically identical, but WidePresent has not yet earned that extra runtime state.**
+> **Path frontier says whether evidence could have arrived. Aggregate energy says how much response arrived. A receiver-relative finite-horizon discrimination matrix says which alternatives have actually separated. Dig shows these are not numerically identical, but WidePresent has not yet earned any extra architecture.**
